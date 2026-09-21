@@ -17,6 +17,16 @@ const GUILD_ID = '1543543212310929498';
 const REQUIRED_ROLE_ID = '1543889096408178728';
 const SUPER_ADMIN_ID = '224984031471730688';
 
+const USER_AGENT = 'MIAU-Exam-Panel/1.0 (+https://panel-miau.onrender.com)';
+
+console.log('=== DEBUG ENV ===');
+console.log('CLIENT_ID:', CLIENT_ID ? CLIENT_ID.slice(0, 6) + '...' : 'BRAK ❌');
+console.log('CLIENT_SECRET:', CLIENT_SECRET ? 'USTAWIONE ✅' : 'BRAK ❌');
+console.log('REDIRECT_URI:', REDIRECT_URI || 'BRAK ❌');
+console.log('SESSION_SECRET:', process.env.SESSION_SECRET ? 'USTAWIONE ✅' : 'BRAK ❌');
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'USTAWIONE ✅' : 'BRAK ❌');
+console.log('=================');
+
 /* ---------- BAZA DANYCH POSTGRES ---------- */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -35,7 +45,7 @@ async function initDb() {
         answer TEXT NOT NULL
       );
     `);
-    
+
     const res = await pool.query('SELECT COUNT(*) FROM questions');
     if (parseInt(res.rows[0].count) === 0) {
       console.log('Baza pusta. Zasiewanie danymi...');
@@ -43,10 +53,12 @@ async function initDb() {
       for (const q of seedData) {
         await pool.query(insertQuery, [q.category, q.rank_min, q.rank_max, q.question, q.answer]);
       }
-      console.log(`Zasiano ${seedData.length} pytań.`);
+      console.log(`✅ Zasiano ${seedData.length} pytań.`);
+    } else {
+      console.log(`✅ Baza już zawiera ${res.rows[0].count} pytań.`);
     }
   } catch (err) {
-    console.error('Błąd inicjalizacji bazy:', err);
+    console.error('❌ Błąd inicjalizacji bazy:', err.message);
   }
 }
 initDb();
@@ -58,12 +70,12 @@ app.set('trust proxy', 1);
 app.use(cookieSession({
   name: 'miau_session',
   keys: [process.env.SESSION_SECRET || 'dev-secret-change-me'],
-  maxAge: 24 * 60 * 60 * 1000, // 24 godziny
+  maxAge: 24 * 60 * 60 * 1000,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax'
 }));
 
-app.use(express.static(path.join(__dirname, 'miau-exam', 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 /* ---------- AUTORYZACJA ---------- */
 function requireAuth(req, res, next) {
@@ -95,9 +107,16 @@ app.get('/auth/discord/callback', async (req, res) => {
   if (!code) return res.redirect('/?error=no_code');
 
   try {
-    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+    /* ---------- 1. WYMIANA KODU NA TOKEN ---------- */
+    console.log('=== TOKEN EXCHANGE - START ===');
+
+    const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+        'User-Agent': USER_AGENT
+      },
       body: new URLSearchParams({
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
@@ -106,26 +125,71 @@ app.get('/auth/discord/callback', async (req, res) => {
         redirect_uri: REDIRECT_URI
       })
     });
-    const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) return res.redirect('/?error=token_failed');
 
-    const userRes = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` }
+    const rawText = await tokenRes.text();
+    console.log('Status:', tokenRes.status);
+    console.log('Content-Type:', tokenRes.headers.get('content-type'));
+    console.log('Body (first 500 chars):', rawText.slice(0, 500));
+
+    let tokenData;
+    try {
+      tokenData = JSON.parse(rawText);
+    } catch (e) {
+      console.error('❌ Nie udało się sparsować odpowiedzi jako JSON');
+      return res.redirect('/?error=token_failed');
+    }
+
+    if (!tokenData.access_token) {
+      console.error('❌ Brak access_token w odpowiedzi:', tokenData);
+      return res.redirect('/?error=token_failed');
+    }
+    console.log('✅ Token uzyskany');
+
+    /* ---------- 2. POBIERANIE DANYCH UŻYTKOWNIKA ---------- */
+    const userRes = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+        'Accept': 'application/json',
+        'User-Agent': USER_AGENT
+      }
     });
-    const user = await userRes.json();
 
+    if (!userRes.ok) {
+      const errText = await userRes.text();
+      console.error('❌ Błąd pobierania danych użytkownika:', userRes.status, errText.slice(0, 300));
+      return res.redirect('/?error=auth_failed');
+    }
+    const user = await userRes.json();
+    console.log('✅ Pobrano użytkownika:', user.username, `(${user.id})`);
+
+    /* ---------- 3. WERYFIKACJA CZŁONKOSTWA I ROLI ---------- */
     const memberRes = await fetch(
-      `https://discord.com/api/users/@me/guilds/${GUILD_ID}/member`,
-      { headers: { Authorization: `Bearer ${tokenData.access_token}` } }
+      `https://discord.com/api/v10/users/@me/guilds/${GUILD_ID}/member`,
+      {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Accept': 'application/json',
+          'User-Agent': USER_AGENT
+        }
+      }
     );
 
-    if (!memberRes.ok) return res.redirect('/?error=not_in_guild');
+    if (!memberRes.ok) {
+      const errText = await memberRes.text();
+      console.warn(`⚠️ User ${user.id} nie należy do gildii ${GUILD_ID} (status ${memberRes.status})`);
+      console.warn('Body:', errText.slice(0, 200));
+      return res.redirect('/?error=not_in_guild');
+    }
+
     const member = await memberRes.json();
-    
+    console.log('Role użytkownika:', member.roles);
+
     if (!Array.isArray(member.roles) || !member.roles.includes(REQUIRED_ROLE_ID)) {
+      console.warn(`⚠️ User ${user.id} nie ma wymaganej roli ${REQUIRED_ROLE_ID}`);
       return res.redirect('/?error=missing_role');
     }
 
+    /* ---------- 4. SUKCES - ZAPIS SESJI ---------- */
     const isAdmin = user.id === SUPER_ADMIN_ID;
     req.session.user = {
       id: user.id,
@@ -134,9 +198,12 @@ app.get('/auth/discord/callback', async (req, res) => {
       isAdmin
     };
 
+    console.log(`✅ Zalogowany: ${user.username} (${user.id}) admin=${isAdmin}`);
     res.redirect('/');
   } catch (err) {
-    console.error('OAuth error:', err);
+    console.error('=== OAUTH AUTH FAILED ===');
+    console.error('Error:', err.message);
+    console.error('Stack:', err.stack);
     res.redirect('/?error=auth_failed');
   }
 });
@@ -158,18 +225,22 @@ app.get('/api/questions', requireAuth, async (req, res) => {
     let query = 'SELECT * FROM questions';
     const conds = [];
     const params = [];
-    
-    if (category) { conds.push(`category = $${params.length + 1}`); params.push(category); }
+
+    if (category) {
+      conds.push(`category = $${params.length + 1}`);
+      params.push(category);
+    }
     if (rank) {
       conds.push(`rank_min <= $${params.length + 1} AND rank_max >= $${params.length + 2}`);
       params.push(Number(rank), Number(rank));
     }
     if (conds.length) query += ' WHERE ' + conds.join(' AND ');
     query += ' ORDER BY category, rank_min, id';
-    
+
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
+    console.error('API questions error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -183,6 +254,7 @@ app.post('/api/questions', requireAdmin, async (req, res) => {
     );
     res.json({ id: result.rows[0].id });
   } catch (err) {
+    console.error('API add question error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -196,6 +268,7 @@ app.put('/api/questions/:id', requireAdmin, async (req, res) => {
     );
     res.json({ ok: true });
   } catch (err) {
+    console.error('API update error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -204,6 +277,33 @@ app.delete('/api/questions/:id', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM questions WHERE id=$1', [Number(req.params.id)]);
     res.json({ ok: true });
+  } catch (err) {
+    console.error('API delete error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/questions/export', requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT category, rank_min, rank_max, question, answer FROM questions');
+    res.setHeader('Content-Disposition', 'attachment; filename="questions.json"');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/questions/import', requireAdmin, async (req, res) => {
+  try {
+    const rows = req.body;
+    if (!Array.isArray(rows)) return res.status(400).json({ error: 'Oczekiwano tablicy' });
+    for (const r of rows) {
+      await pool.query(
+        'INSERT INTO questions (category, rank_min, rank_max, question, answer) VALUES ($1, $2, $3, $4, $5)',
+        [r.category, r.rank_min ?? 1, r.rank_max ?? 13, r.question, r.answer]
+      );
+    }
+    res.json({ ok: true, count: rows.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -215,4 +315,8 @@ app.get('/admin', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.listen(PORT, () => console.log(`🚀 Serwer działa na porcie ${PORT}`));
+/* ---------- START ---------- */
+app.listen(PORT, () => {
+  console.log(`🚀 Serwer działa na porcie ${PORT}`);
+  console.log(`🌍 URL: https://panel-miau.onrender.com`);
+});
