@@ -20,14 +20,16 @@ const SUPER_ADMIN_ID = '224984031471730688';
 const USER_AGENT = 'MIAU-Exam-Panel/1.0 (+https://panel-miau.onrender.com)';
 
 /* ---------- ROTACJA HOSTÓW DISCORD ---------- */
+// Frankfurt jest blokowany przez Cloudflare, więc próbujemy różnych hostów
 const DISCORD_HOSTS = [
   'https://discord.com',
+  'https://discordapp.com',
   'https://canary.discord.com',
   'https://ptb.discord.com'
 ];
 
 /* ---------- FUNKCJA fetch z rotacją hostów i backoffem ---------- */
-async function fetchDiscord(endpoint, options = {}, maxRetries = 3) {
+async function fetchDiscord(endpoint, options = {}, maxRetries = 4) {
   let lastError = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
