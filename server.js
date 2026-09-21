@@ -63,7 +63,7 @@ app.use(cookieSession({
   sameSite: 'lax'
 }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'miau-exam', 'public')));
 
 /* ---------- AUTORYZACJA ---------- */
 function requireAuth(req, res, next) {
