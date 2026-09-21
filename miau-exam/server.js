@@ -19,6 +19,62 @@ const SUPER_ADMIN_ID = '224984031471730688';
 
 const USER_AGENT = 'MIAU-Exam-Panel/1.0 (+https://panel-miau.onrender.com)';
 
+/* ---------- ROTACJA HOSTÓW DISCORD ---------- */
+const DISCORD_HOSTS = [
+  'https://discord.com',
+  'https://canary.discord.com',
+  'https://ptb.discord.com'
+];
+
+/* ---------- FUNKCJA fetch z rotacją hostów i backoffem ---------- */
+async function fetchDiscord(endpoint, options = {}, maxRetries = 3) {
+  let lastError = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const host = DISCORD_HOSTS[attempt % DISCORD_HOSTS.length];
+    const url = `${host}${endpoint}`;
+    
+    try {
+      console.log(`🌐 Próba ${attempt + 1}/${maxRetries}: ${url}`);
+      
+      const response = await fetch(url, options);
+      
+      // Sukces
+      if (response.ok || response.status < 500) {
+        return response;
+      }
+      
+      // Błąd 429 (rate limit) - sprawdź nagłówek Retry-After
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after') || 
+                          response.headers.get('x-ratelimit-reset-after') || 
+                          '5';
+        const waitTime = parseInt(retryAfter) * 1000;
+        
+        console.warn(`⚠️ Rate limit (429). Czekam ${waitTime}ms przed kolejną próbą...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        lastError = response;
+        continue;
+      }
+      
+      // Inne błędy 4xx - zwróć od razu
+      return response;
+      
+    } catch (err) {
+      console.error(`❌ Błąd sieci (próba ${attempt + 1}):`, err.message);
+      lastError = err;
+      
+      // Krótka przerwa przed kolejną próbą
+      if (attempt < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }
+  
+  throw lastError || new Error('Wszystkie próby połączenia z Discord API nie powiodły się');
+}
+
+/* ---------- DEBUG ENV ---------- */
 console.log('=== DEBUG ENV ===');
 console.log('CLIENT_ID:', CLIENT_ID ? CLIENT_ID.slice(0, 6) + '...' : 'BRAK ❌');
 console.log('CLIENT_SECRET:', CLIENT_SECRET ? 'USTAWIONE ✅' : 'BRAK ❌');
@@ -110,7 +166,7 @@ app.get('/auth/discord/callback', async (req, res) => {
     /* ---------- 1. WYMIANA KODU NA TOKEN ---------- */
     console.log('=== TOKEN EXCHANGE - START ===');
 
-    const tokenRes = await fetch('https://discord.com/api/v10/oauth2/token', {
+    const tokenRes = await fetchDiscord('/api/v10/oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -146,7 +202,7 @@ app.get('/auth/discord/callback', async (req, res) => {
     console.log('✅ Token uzyskany');
 
     /* ---------- 2. POBIERANIE DANYCH UŻYTKOWNIKA ---------- */
-    const userRes = await fetch('https://discord.com/api/v10/users/@me', {
+    const userRes = await fetchDiscord('/api/v10/users/@me', {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
         'Accept': 'application/json',
@@ -163,8 +219,8 @@ app.get('/auth/discord/callback', async (req, res) => {
     console.log('✅ Pobrano użytkownika:', user.username, `(${user.id})`);
 
     /* ---------- 3. WERYFIKACJA CZŁONKOSTWA I ROLI ---------- */
-    const memberRes = await fetch(
-      `https://discord.com/api/v10/users/@me/guilds/${GUILD_ID}/member`,
+    const memberRes = await fetchDiscord(
+      `/api/v10/users/@me/guilds/${GUILD_ID}/member`,
       {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
