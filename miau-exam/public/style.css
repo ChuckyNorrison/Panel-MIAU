@@ -1,0 +1,31 @@
+:root { --primary: #e67e22; --primary-hover: #d35400; --secondary: #34495e; --bg-color: #f4f6f9; --card-bg: #ffffff; --text-color: #2c3e50; --border-color: #dcdde1; --btn-correct: #27ae60; --btn-neutral: #f1c40f; --btn-wrong: #c0392b; }
+* { box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; }
+.container { max-width: 900px; margin: 0 auto; background-color: var(--card-bg); padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+h1 { text-align: center; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+h2.stage-title { color: var(--secondary); border-left: 4px solid var(--primary); padding-left: 10px; background: #ecf0f1; padding: 10px; border-radius: 4px; }
+.form-group { margin-bottom: 20px; } label { display: block; font-weight: bold; margin-bottom: 5px; }
+select, input[type="text"], textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 5px; font-size: 16px; }
+button.main-btn, .main-btn { background-color: var(--primary); color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; width: 100%; font-weight: bold; transition: background-color 0.3s; margin-top: 15px; text-decoration: none; }
+button.main-btn:hover, .main-btn:hover { background-color: var(--primary-hover); }
+button.next-btn { background-color: var(--secondary); margin-top: 25px; } button.next-btn:hover { background-color: #2c3e50; }
+.question-card { background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin-top: 20px; }
+.question-text { font-weight: bold; font-size: 18px; margin-bottom: 10px; }
+.answer-text { font-style: italic; margin-bottom: 15px; color: #34495e; }
+.grading-buttons { display: flex; gap: 10px; }
+.grading-buttons button { flex: 1; padding: 10px; border: 2px solid transparent; border-radius: 5px; cursor: pointer; font-weight: bold; transition: all 0.2s; background-color: #ecf0f1; color: var(--text-color); }
+.grading-buttons button.selected-correct { background-color: var(--btn-correct); color: white; }
+.grading-buttons button.selected-neutral { background-color: var(--btn-neutral); color: #2c3e50; }
+.grading-buttons button.selected-wrong { background-color: var(--btn-wrong); color: white; }
+#result-section { margin-top: 30px; padding: 20px; background-color: #fff9e6; border-left: 5px solid var(--primary); border-radius: 5px; display: none; }
+#command-output { font-family: monospace; font-size: 14px; resize: vertical; }
+.copy-btn { background-color: var(--secondary); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+.copy-btn:hover { background-color: #1a252f; }
+.error { color: var(--btn-wrong); font-weight: bold; margin-top: 10px; text-align: center; }
+.stage-container { display: none; }
+.topbar { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 20px; }
+.topbar h1 { border: none; padding: 0; margin: 0; font-size: 22px; }
+.user-box { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.admin-link { background: var(--secondary); color: #fff; padding: 6px 10px; border-radius: 5px; text-decoration: none; font-weight: bold; }
+.admin-link:hover { background: #2c3e50; }
+.logout-btn { background: #c0392b; color: #fff; border: none; padding: 6px 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }

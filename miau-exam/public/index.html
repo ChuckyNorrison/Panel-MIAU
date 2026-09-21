@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Egzaminacyjny MIAU - NKW</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="container">
+  <div id="loading-section" style="text-align:center; padding:40px;">
+    <h2 style="color: var(--primary);">Ładowanie...</h2>
+  </div>
+
+  <div id="login-section" style="display:none;">
+    <h1>Panel Egzaminacyjny MIAU - NKW</h1>
+    <p style="text-align:center; font-size:16px;">Aby uzyskać dostęp, zaloguj się kontem Discord należącym do wymaganego serwera i posiadającym odpowiednią rolę.</p>
+    <a href="/auth/discord" class="main-btn" style="display:block; text-align:center; text-decoration:none; margin-top:20px;">🔐 Zaloguj się przez Discord</a>
+    <div id="login-error" class="error"></div>
+  </div>
+
+  <div id="app-section" style="display:none;">
+    <div class="topbar">
+      <h1 style="flex:1; border:none;">Panel Egzaminacyjny MIAU - NKW</h1>
+      <div class="user-box">
+        <span id="user-info"></span>
+        <a href="/admin" id="admin-link" class="admin-link" style="display:none;">⚙️ Zarządzanie</a>
+        <button class="logout-btn" onclick="logout()">Wyloguj</button>
+      </div>
+    </div>
+
+    <div id="setup-section">
+      <div class="form-group">
+        <label for="examinee-name">Nazwa osoby egzaminowanej:</label>
+        <input type="text" id="examinee-name" placeholder="np. Chucky Norrison">
+      </div>
+      <div class="form-group">
+        <label for="rank-select">Wybierz stopień osoby egzaminowanej:</label>
+        <select id="rank-select">
+          <option value="">-- Wybierz stopień --</option>
+          <option value="1">1 - Praktykant</option>
+          <option value="2">2 - Stażysta</option>
+          <option value="3">3 - Młodszy Pielęgniarz / Młodszy Ratownik Medyczny</option>
+          <option value="4">4 - Pielęgniarz / Ratownik Medyczny</option>
+          <option value="5">5 - Starszy Pielęgniarz / Starszy Ratownik Medyczny</option>
+          <option value="6">6 - Pielęgniarz Oddziałowy / Dyżurny Ratownik Medyczny</option>
+          <option value="7">7 - Pielęgniarz Specjalista / Ratownik Medyczny Specjalista</option>
+          <option value="8">8 - Rezydent</option>
+          <option value="9">9 - Asystent Lekarza</option>
+          <option value="10">10 - Lekarz</option>
+          <option value="11">11 - Starszy Lekarz</option>
+          <option value="12">12 - Lekarz Dyżurny</option>
+          <option value="13">13 - Lekarz Specjalista</option>
+        </select>
+      </div>
+      <button class="main-btn" id="start-btn">Rozpocznij egzamin</button>
+    </div>
+
+    <div id="error-msg" class="error"></div>
+    <div id="stage-1" class="stage-container"><h2 class="stage-title">Etap 1 z 3: Regulamin (4 pytania)</h2><div id="stage-1-questions"></div><button class="main-btn next-btn" onclick="nextStage(1)">Przejdź do Etapu 2</button></div>
+    <div id="stage-2" class="stage-container"><h2 class="stage-title">Etap 2 z 3: Kody Radiowe (4 pytania)</h2><div id="stage-2-questions"></div><button class="main-btn next-btn" onclick="nextStage(2)">Przejdź do Etapu 3</button></div>
+    <div id="stage-3" class="stage-container"><h2 class="stage-title">Etap 3 z 3: Wiedza Medyczna (10 pytań)</h2><div id="stage-3-questions"></div><button class="main-btn next-btn" style="background-color: var(--primary);" onclick="finishExam()">Zakończ egzamin</button></div>
+
+    <div id="result-section">
+      <h3>Wynik egzaminu</h3>
+      <p id="score-text"></p>
+      <label>Komenda do skopiowania:</label>
+      <textarea id="command-output" readonly rows="4"></textarea>
+      <button class="copy-btn" onclick="copyCommand()">Skopiuj komendę</button>
+      <button class="copy-btn" style="background-color: #7f8c8d; margin-left: 10px;" onclick="location.reload()">Zresetuj</button>
+    </div>
+  </div>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
